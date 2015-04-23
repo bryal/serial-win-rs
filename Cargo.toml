@@ -1,0 +1,14 @@
+[package]
+name = "serial-win"
+version = "0.0.1"
+authors = ["bryal <96.bryal@gmail.com>"]
+description = "Serial communications in Windows"
+repository = "https://github.com/bryal/serial-win-rs"
+documentation = "http://bryal.github.io/serial-win-rs/serial_win/"
+readme = "README.md"
+keywords = ["Windows", "serial", "communications", "terminal", "COM"]
+license = "MIT"
+
+[dependencies]
+libc = "*"
+bitflags = "*"
