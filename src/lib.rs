@@ -251,7 +251,20 @@ impl io::Write for Connection {
 	}
 
 	fn flush(&mut self) -> io::Result<()> {
-		Ok(())
+		let (succeded, err) = unsafe { (
+			kernel32::FlushFileBuffers(self.comm_handle) != 0,
+			kernel32::GetLastError() as c_int
+		)};
+
+		if succeded {
+			Ok(())
+		} else {
+			Err(match err {
+				ERROR_INVALID_HANDLE =>
+					Error::new(ErrorKind::InvalidInput, "Communications handle is invalid"),
+				_ => Error::new(ErrorKind::Other, format!("Flush failed with 0x{:x}", err))
+			})
+		}
 	}
 }
 impl Drop for Connection {
@@ -382,6 +395,7 @@ fn colorswirl_test() {
 
 		// Issue color data to LEDs
 		connection.write(&buffer[..]).unwrap();
+		connection.flush().unwrap(); // Not necessary, just testing
 
 		// The arduino can't handle it if we go too fast
 		thread::sleep_ms(2);
