@@ -104,15 +104,19 @@ impl DCB {
 	}
 }
 
-pub const NOPARITY: BYTE = 0;
-pub const ODDPARITY: BYTE = 1;
-pub const EVENPARITY: BYTE = 2;
-pub const MARKPARITY: BYTE = 3;
-pub const SPACEPARITY: BYTE = 4;
+pub enum Parity {
+	NO = 0,
+	ODD = 1,
+	EVEN = 2,
+	MARK = 3,
+	SPACE = 4,
+}
 
-pub const ONESTOPBIT: BYTE = 0;
-pub const ONE5STOPBITS: BYTE = 1;
-pub const TWOSTOPBITS: BYTE = 2;
+pub enum StopBits {
+	ONE = 0,
+	ONE5 = 1,
+	TWO = 2,
+}
 
 pub enum DTR_CONTROL {
 	DISABLE,

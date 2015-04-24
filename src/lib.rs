@@ -91,8 +91,8 @@ impl Connection {
 				.and_then(|dcb| conn.set_comm_state(dcb))
 				.and_then(|_| conn.set_baud_rate(baud_rate))
 				.and_then(|_| conn.set_byte_size(8))
-				.and_then(|_| conn.set_stop_bits(ONESTOPBIT))
-				.and_then(|_| conn.set_parity(NOPARITY))
+				.and_then(|_| conn.set_stop_bits(StopBits::ONE))
+				.and_then(|_| conn.set_parity(Parity::NO))
 				.and_then(|_| {
 					unsafe {
 						PurgeComm(*conn.comm_handle.borrow_mut(), PURGE_RXCLEAR | PURGE_TXCLEAR);
@@ -169,20 +169,34 @@ impl Connection {
 		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ ByteSize: byte_size, ..dcb }))
 	}
 
-	pub fn parity(&self) -> io::Result<u8> {
-		self.comm_state().map(|dcb| dcb.Parity)
+	pub fn parity(&self) -> io::Result<Parity> {
+		self.comm_state().map(|dcb| match dcb.Parity {
+			0 => Parity::NO,
+			1 => Parity::ODD,
+			2 => Parity::EVEN,
+			3 => Parity::MARK,
+			4 => Parity::SPACE,
+			x => panic!("No match for parity, dcb.Parity = {}", x)
+		})
 	}
 
-	pub fn set_parity(&mut self, parity: u8) -> io::Result<()> {
-		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ Parity: parity, ..dcb }))
+	pub fn set_parity(&mut self, parity: Parity) -> io::Result<()> {
+		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ Parity: parity as u8, ..dcb }))
 	}
 
-	pub fn stop_bits(&self) -> io::Result<u8> {
-		self.comm_state().map(|dcb| dcb.StopBits)
+	pub fn stop_bits(&self) -> io::Result<StopBits> {
+		self.comm_state().map(|dcb| match dcb.StopBits {
+			0 => StopBits::ONE,
+			1 => StopBits::ONE5,
+			2 => StopBits::TWO,
+			x => panic!("No match for stop bits, dcb.StopBits = {}", x)
+		})
 	}
 
-	pub fn set_stop_bits(&mut self, stop_bits: u8) -> io::Result<()> {
-		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ StopBits: stop_bits, ..dcb }))
+	pub fn set_stop_bits(&mut self, stop_bits: StopBits) -> io::Result<()> {
+		self.comm_state().and_then(|dcb|
+			self.set_comm_state(DCB{ StopBits: stop_bits as u8, ..dcb })
+		)
 	}
 
 	/// Read into `buf` until `delim` is encountered. Return n.o. bytes read on success,
