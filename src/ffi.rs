@@ -70,7 +70,7 @@ impl fmt::Debug for DCBFlags {
 	}
 }
 
-#[repr(C)]
+#[repr(C, packed)]
 #[derive(Debug)]
 pub struct DCB {
 	pub DCBlength: DWORD,
