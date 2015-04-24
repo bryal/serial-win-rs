@@ -26,36 +26,33 @@
 #[macro_use]
 extern crate bitflags;
 extern crate libc;
-
 pub use ffi::*;
 
 use libc::consts::os::extra::*;
 use libc::funcs::extra::kernel32;
-use libc::{ c_void, c_int, HANDLE, DWORD };
+use libc::{ c_void, c_int, HANDLE };
 use std::{ ptr, mem, io };
 use std::io::{ Error, ErrorKind };
 
 mod ffi;
 
-pub struct CommEventWaiter<'a> {
-	comm_handle: &'a mut c_void
-}
-impl<'a> CommEventWaiter<'a> {
-	pub fn wait_for_event(&mut self) -> Result<CommEventFlags, DWORD> {
-		let mut events = CommEventFlags::empty();
-		let (succeded, err) = unsafe { (
-			WaitCommEvent(self.comm_handle, &mut events, ptr::null_mut()) != 0,
-			kernel32::GetLastError()
-		) };
+fn system_to_io_err(operation: &'static str, error_code: c_int) -> io::Error {
+	use std::io::ErrorKind::*;
 
-		if succeded {
-			Ok(events)
-		} else {
-			Err(err)
-		}
-	}
+	let (error_kind, message) = match error_code {
+		ERROR_ACCESS_DENIED => (AlreadyExists, "Access denied. Resource might be busy"),
+		ERROR_FILE_NOT_FOUND => (NotFound, "Serial port not found"),
+		ERROR_INVALID_USER_BUFFER => (InvalidInput, "Supplied buffer is invalid"),
+		ERROR_NOT_ENOUGH_MEMORY => (Other, "Too many I/O requests, not enough memory"),
+		ERROR_OPERATION_ABORTED => (Interrupted, "Operation was canceled"),
+		ERROR_INVALID_HANDLE => (InvalidInput, "Communications handle is invalid"),
+		_ => (Other, "unmatched error"),
+	};
+
+	Error::new(error_kind,
+		format!(r#"Operation `{}` failed with code 0x{:x} and message "{}""#,
+			operation, error_code, message))
 }
-unsafe impl<'a> Send for CommEventWaiter<'a> { }
 
 /// A serial connection
 pub struct Connection {
@@ -65,7 +62,7 @@ pub struct Connection {
 impl Connection {
 	/// Open a new connection via port `port` with baud rate `baud_rate`
 	pub fn new(port: &str, baud_rate: u32) -> io::Result<Connection> {
-		let (comm_handle, cf_result) = unsafe {
+		let (comm_handle, err) = unsafe {
 			let mut port_u16: Vec<_> = port.utf16_units().collect();
 			port_u16.push(0);
 			(
@@ -81,18 +78,12 @@ impl Connection {
 		};
 
 		if comm_handle == INVALID_HANDLE_VALUE {
-			Err(match cf_result {
-				ERROR_ACCESS_DENIED =>
-					Error::new(ErrorKind::AlreadyExists, "Access denied, port might be busy"),
-				ERROR_FILE_NOT_FOUND =>
-					Error::new(ErrorKind::NotFound, "COM port does not exist"),
-				_ => Error::new(ErrorKind::Other, "Invalid COM port handle")
-			})
+			Err(system_to_io_err("Open port", err))
 		} else {
 			let mut conn = Connection{ comm_handle: comm_handle };
 			let mut dcb = match conn.get_comm_state() {
 				Ok(dcb) => dcb,
-				Err(_) => return Err(Error::new(ErrorKind::Other, "Error getting comm state"))
+				Err(e) => return Err(e)
 			};
 
 			dcb.BaudRate = baud_rate;
@@ -100,59 +91,69 @@ impl Connection {
 			dcb.StopBits = ONESTOPBIT;
 			dcb.Parity = NOPARITY;
 			dcb.set_dtr_control(DTR_CONTROL::ENABLE);
-			if let Err(_) = conn.set_comm_state(dcb) {
-				return Err(Error::new(ErrorKind::Other, "Error setting comm state"))
-			} else {
-				conn.set_timeout(40).unwrap();
-				unsafe { PurgeComm(conn.comm_handle, PURGE_RXCLEAR | PURGE_TXCLEAR); }
-				Ok(conn)
-			}
+
+			conn.set_comm_state(dcb)
+				.and_then(|_| {
+					unsafe { PurgeComm(conn.comm_handle, PURGE_RXCLEAR | PURGE_TXCLEAR); }
+					conn.set_timeout(40)
+				})
+				.and_then(|_| Ok(conn))
 		}
 	}
 
 	/// Retrieve the current control settings for this communications device
-	fn get_comm_state(&mut self) -> Result<DCB, ()> {
-		unsafe {
-			let mut dcb = mem::zeroed();
-			if GetCommState(self.comm_handle, &mut dcb) == 0 {
-				Err(())
-			} else {
-				Ok(dcb)
-			}
+	fn get_comm_state(&mut self) -> io::Result<DCB> {
+		let mut dcb = unsafe { mem::zeroed() };
+		let (succeded, err) = unsafe { (
+			GetCommState(self.comm_handle, &mut dcb) != 0,
+			kernel32::GetLastError() as i32
+		)};
+
+		if succeded {
+			Ok(dcb)
+		} else {
+			Err(system_to_io_err("GetCommState", err))
 		}
 	}
 
 	/// Configures this communications device according to specifications in a device-control block,
 	/// `dcb`.
-	fn set_comm_state(&mut self, mut dcb: DCB) -> Result<(), ()> {
-		if unsafe { SetCommState(self.comm_handle, &mut dcb) } == 0 {
-			Err(())
-		} else {
+	fn set_comm_state(&mut self, mut dcb: DCB) -> io::Result<()> {
+		let (succeded, err) = unsafe { (
+			SetCommState(self.comm_handle, &mut dcb) != 0,
+			kernel32::GetLastError() as i32
+		)};
+
+		if succeded {
 			Ok(())
+		} else {
+			Err(system_to_io_err("SetCommState", err))
 		}
 	}
 
-	pub fn comm_event_waiter<'a>(&self) -> CommEventWaiter<'a> {
-		CommEventWaiter{ comm_handle: unsafe { mem::transmute(self.comm_handle) } }
-	}
-
 	/// Set interval and total timeouts to `timeout_ms`
-	pub fn set_timeout(&mut self, timeout_ms: u32) -> Result<(), ()> {
-		unsafe {
-			if SetCommTimeouts(self.comm_handle, &mut COMMTIMEOUTS{
+	pub fn set_timeout(&mut self, timeout_ms: u32) -> io::Result<()> {
+		let (succeded, err) = unsafe { (
+			SetCommTimeouts(self.comm_handle, &mut COMMTIMEOUTS{
 				ReadIntervalTimeout: timeout_ms,
 				ReadTotalTimeoutMultiplier: timeout_ms,
 				ReadTotalTimeoutConstant: timeout_ms,
 				WriteTotalTimeoutMultiplier: timeout_ms,
 				WriteTotalTimeoutConstant: timeout_ms,
-			}) != 0
-			{
-				Ok(())
-			} else {
-				Err(())
-			}
+			}) != 0,
+			kernel32::GetLastError() as i32
+		)};
+
+		if succeded {
+			Ok(())
+		} else {
+			Err(system_to_io_err("SetCommTimeouts", err))
 		}
 	}
+
+	// pub fn baud_rate(&self) -> io::Result<u32> {
+	// 	self.
+	// }
 
 	/// Read into `buf` until `delim` is encountered. Return n.o. bytes read on success,
 	/// and an IO error on failure.
@@ -199,9 +200,9 @@ impl io::Read for Connection {
 				buf.as_mut_ptr() as *mut c_void,
 				buf.len() as u32,
 				&mut n_bytes_read,
-				ptr::null_mut()) > 0,
+				ptr::null_mut()) != 0,
 			kernel32::GetLastError() as c_int
-		) };
+		)};
 
 		if succeded {
 			if n_bytes_read == 0 {
@@ -210,15 +211,7 @@ impl io::Read for Connection {
 				Ok(n_bytes_read as usize)
 			}
 		} else {
-			Err(match err {
-				ERROR_INVALID_USER_BUFFER =>
-					Error::new(ErrorKind::InvalidInput, "Supplied buffer is invalid"),
-				ERROR_NOT_ENOUGH_MEMORY =>
-					Error::new(ErrorKind::Other, "Too many I/O requests"),
-				ERROR_OPERATION_ABORTED =>
-					Error::new(ErrorKind::Interrupted, "Operation was canceled"),
-				_ => Error::new(ErrorKind::Other, format!("Read failed with 0x{:x}", err))
-			})
+			Err(system_to_io_err("read", err))
 		}
 	}
 }
@@ -238,15 +231,7 @@ impl io::Write for Connection {
 		if succeded {
 			Ok(n_bytes_written as usize)
 		} else {
-			Err(match err {
-				ERROR_INVALID_USER_BUFFER =>
-					Error::new(ErrorKind::InvalidInput, "Supplied buffer is invalid"),
-				ERROR_NOT_ENOUGH_MEMORY =>
-					Error::new(ErrorKind::Other, "Too many I/O requests"),
-				ERROR_OPERATION_ABORTED =>
-					Error::new(ErrorKind::Interrupted, "Operation was canceled"),
-				_ => Error::new(ErrorKind::Other, format!("Write failed with 0x{:x}", err))
-			})
+			Err(system_to_io_err("write", err))
 		}
 	}
 
@@ -259,19 +244,15 @@ impl io::Write for Connection {
 		if succeded {
 			Ok(())
 		} else {
-			Err(match err {
-				ERROR_INVALID_HANDLE =>
-					Error::new(ErrorKind::InvalidInput, "Communications handle is invalid"),
-				_ => Error::new(ErrorKind::Other, format!("Flush failed with 0x{:x}", err))
-			})
+			Err(system_to_io_err("flush", err))
 		}
 	}
 }
 impl Drop for Connection {
 	fn drop(&mut self) {
 		let e = unsafe { kernel32::CloseHandle(self.comm_handle) };
-		if e < 1 {
-			panic!("CloseHandle failed with 0x{:x}", e)
+		if e == 0 {
+			panic!("Drop of Connection failed. CloseHandle gave error 0x{:x}", e)
 		}
 	}
 }
