@@ -82,28 +82,29 @@ impl Connection {
 			Err(system_to_io_err("Open port", err))
 		} else {
 			let mut conn = Connection{ comm_handle: RefCell::new(comm_handle) };
-			let mut dcb = match conn.get_comm_state() {
-				Ok(dcb) => dcb,
-				Err(e) => return Err(e)
-			};
 
-			dcb.BaudRate = baud_rate;
-			dcb.ByteSize = 8;
-			dcb.StopBits = ONESTOPBIT;
-			dcb.Parity = NOPARITY;
-			dcb.set_dtr_control(DTR_CONTROL::ENABLE);
-
-			conn.set_comm_state(dcb)
+			conn.comm_state()
+				.map(|mut dcb| {
+					dcb.set_dtr_control(DTR_CONTROL::ENABLE);
+					dcb
+				})
+				.and_then(|dcb| conn.set_comm_state(dcb))
+				.and_then(|_| conn.set_baud_rate(baud_rate))
+				.and_then(|_| conn.set_byte_size(8))
+				.and_then(|_| conn.set_stop_bits(ONESTOPBIT))
+				.and_then(|_| conn.set_parity(NOPARITY))
 				.and_then(|_| {
-					unsafe { PurgeComm(*conn.comm_handle.borrow_mut(), PURGE_RXCLEAR | PURGE_TXCLEAR); }
+					unsafe {
+						PurgeComm(*conn.comm_handle.borrow_mut(), PURGE_RXCLEAR | PURGE_TXCLEAR);
+					}
 					conn.set_timeout(40)
 				})
-				.and_then(|_| Ok(conn))
+				.map(|_| conn)					
 		}
 	}
 
 	/// Retrieve the current control settings for this communications device
-	fn get_comm_state(&self) -> io::Result<DCB> {
+	fn comm_state(&self) -> io::Result<DCB> {
 		let mut dcb = unsafe { mem::zeroed() };
 		let (succeded, err) = unsafe { (
 			GetCommState(*self.comm_handle.borrow_mut(), &mut dcb) != 0,
@@ -150,6 +151,38 @@ impl Connection {
 		} else {
 			Err(system_to_io_err("SetCommTimeouts", err))
 		}
+	}
+
+	pub fn baud_rate(&self) -> io::Result<u32> {
+		self.comm_state().map(|dcb| dcb.BaudRate)
+	}
+
+	pub fn set_baud_rate(&mut self, baud_rate: u32) -> io::Result<()> {
+		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ BaudRate: baud_rate, ..dcb }))
+	}
+
+	pub fn byte_size(&self) -> io::Result<u8> {
+		self.comm_state().map(|dcb| dcb.ByteSize)
+	}
+
+	pub fn set_byte_size(&mut self, byte_size: u8) -> io::Result<()> {
+		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ ByteSize: byte_size, ..dcb }))
+	}
+
+	pub fn parity(&self) -> io::Result<u8> {
+		self.comm_state().map(|dcb| dcb.Parity)
+	}
+
+	pub fn set_parity(&mut self, parity: u8) -> io::Result<()> {
+		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ Parity: parity, ..dcb }))
+	}
+
+	pub fn stop_bits(&self) -> io::Result<u8> {
+		self.comm_state().map(|dcb| dcb.StopBits)
+	}
+
+	pub fn set_stop_bits(&mut self, stop_bits: u8) -> io::Result<()> {
+		self.comm_state().and_then(|dcb| self.set_comm_state(DCB{ StopBits: stop_bits, ..dcb }))
 	}
 
 	/// Read into `buf` until `delim` is encountered. Return n.o. bytes read on success,
