@@ -33,6 +33,7 @@ use libc::funcs::extra::kernel32;
 use libc::{ c_void, c_int, HANDLE };
 use std::{ ptr, mem, io };
 use std::io::{ Error, ErrorKind };
+use std::cell::RefCell;
 
 mod ffi;
 
@@ -57,7 +58,7 @@ fn system_to_io_err(operation: &'static str, error_code: c_int) -> io::Error {
 /// A serial connection
 pub struct Connection {
 	// Pointer to the serial connection
-	comm_handle: HANDLE
+	comm_handle: RefCell<HANDLE>
 }
 impl Connection {
 	/// Open a new connection via port `port` with baud rate `baud_rate`
@@ -80,7 +81,7 @@ impl Connection {
 		if comm_handle == INVALID_HANDLE_VALUE {
 			Err(system_to_io_err("Open port", err))
 		} else {
-			let mut conn = Connection{ comm_handle: comm_handle };
+			let mut conn = Connection{ comm_handle: RefCell::new(comm_handle) };
 			let mut dcb = match conn.get_comm_state() {
 				Ok(dcb) => dcb,
 				Err(e) => return Err(e)
@@ -94,7 +95,7 @@ impl Connection {
 
 			conn.set_comm_state(dcb)
 				.and_then(|_| {
-					unsafe { PurgeComm(conn.comm_handle, PURGE_RXCLEAR | PURGE_TXCLEAR); }
+					unsafe { PurgeComm(*conn.comm_handle.borrow_mut(), PURGE_RXCLEAR | PURGE_TXCLEAR); }
 					conn.set_timeout(40)
 				})
 				.and_then(|_| Ok(conn))
@@ -102,10 +103,10 @@ impl Connection {
 	}
 
 	/// Retrieve the current control settings for this communications device
-	fn get_comm_state(&mut self) -> io::Result<DCB> {
+	fn get_comm_state(&self) -> io::Result<DCB> {
 		let mut dcb = unsafe { mem::zeroed() };
 		let (succeded, err) = unsafe { (
-			GetCommState(self.comm_handle, &mut dcb) != 0,
+			GetCommState(*self.comm_handle.borrow_mut(), &mut dcb) != 0,
 			kernel32::GetLastError() as i32
 		)};
 
@@ -120,7 +121,7 @@ impl Connection {
 	/// `dcb`.
 	fn set_comm_state(&mut self, mut dcb: DCB) -> io::Result<()> {
 		let (succeded, err) = unsafe { (
-			SetCommState(self.comm_handle, &mut dcb) != 0,
+			SetCommState(*self.comm_handle.borrow_mut(), &mut dcb) != 0,
 			kernel32::GetLastError() as i32
 		)};
 
@@ -134,7 +135,7 @@ impl Connection {
 	/// Set interval and total timeouts to `timeout_ms`
 	pub fn set_timeout(&mut self, timeout_ms: u32) -> io::Result<()> {
 		let (succeded, err) = unsafe { (
-			SetCommTimeouts(self.comm_handle, &mut COMMTIMEOUTS{
+			SetCommTimeouts(*self.comm_handle.borrow_mut(), &mut COMMTIMEOUTS{
 				ReadIntervalTimeout: timeout_ms,
 				ReadTotalTimeoutMultiplier: timeout_ms,
 				ReadTotalTimeoutConstant: timeout_ms,
@@ -150,10 +151,6 @@ impl Connection {
 			Err(system_to_io_err("SetCommTimeouts", err))
 		}
 	}
-
-	// pub fn baud_rate(&self) -> io::Result<u32> {
-	// 	self.
-	// }
 
 	/// Read into `buf` until `delim` is encountered. Return n.o. bytes read on success,
 	/// and an IO error on failure.
@@ -196,7 +193,7 @@ impl io::Read for Connection {
 
 		let mut n_bytes_read = 0;
 		let (succeded, err) = unsafe { (
-			kernel32::ReadFile(self.comm_handle,
+			kernel32::ReadFile(*self.comm_handle.borrow_mut(),
 				buf.as_mut_ptr() as *mut c_void,
 				buf.len() as u32,
 				&mut n_bytes_read,
@@ -220,7 +217,7 @@ impl io::Write for Connection {
 		let mut n_bytes_written = 0;
 
 		let (succeded, err) = unsafe { (
-			kernel32::WriteFile(self.comm_handle,
+			kernel32::WriteFile(*self.comm_handle.borrow_mut(),
 				mem::transmute(buf.as_ptr()),
 				buf.len() as u32,
 				&mut n_bytes_written,
@@ -237,7 +234,7 @@ impl io::Write for Connection {
 
 	fn flush(&mut self) -> io::Result<()> {
 		let (succeded, err) = unsafe { (
-			kernel32::FlushFileBuffers(self.comm_handle) != 0,
+			kernel32::FlushFileBuffers(*self.comm_handle.borrow_mut()) != 0,
 			kernel32::GetLastError() as c_int
 		)};
 
@@ -250,7 +247,7 @@ impl io::Write for Connection {
 }
 impl Drop for Connection {
 	fn drop(&mut self) {
-		let e = unsafe { kernel32::CloseHandle(self.comm_handle) };
+		let e = unsafe { kernel32::CloseHandle(*self.comm_handle.borrow_mut()) };
 		if e == 0 {
 			panic!("Drop of Connection failed. CloseHandle gave error 0x{:x}", e)
 		}
