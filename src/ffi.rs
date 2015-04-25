@@ -104,6 +104,7 @@ impl DCB {
 	}
 }
 
+#[derive(Debug, Clone)]
 pub enum Parity {
 	NO = 0,
 	ODD = 1,
@@ -112,12 +113,14 @@ pub enum Parity {
 	SPACE = 4,
 }
 
+#[derive(Debug, Clone)]
 pub enum StopBits {
 	ONE = 0,
 	ONE5 = 1,
 	TWO = 2,
 }
 
+#[derive(Debug, Clone)]
 pub enum DTR_CONTROL {
 	DISABLE,
 	ENABLE,

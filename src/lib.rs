@@ -83,8 +83,7 @@ impl Connection {
 		} else {
 			let mut conn = Connection{ comm_handle: RefCell::new(comm_handle) };
 
-			conn.comm_state()
-				.map(|mut dcb| {
+			conn.comm_state().map(|mut dcb| {
 					dcb.set_dtr_control(DTR_CONTROL::ENABLE);
 					dcb
 				})
