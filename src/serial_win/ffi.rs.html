@@ -221,6 +221,10 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
 </pre><pre class='rust '>
 <span class='comment'>// The MIT License (MIT)</span>
 <span class='comment'>//</span>
@@ -294,7 +298,7 @@
 	}
 }
 
-<span class='attribute'>#[<span class='ident'>repr</span>(<span class='ident'>C</span>)]</span>
+<span class='attribute'>#[<span class='ident'>repr</span>(<span class='ident'>C</span>, <span class='ident'>packed</span>)]</span>
 <span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>DCB</span> {
 	<span class='kw'>pub</span> <span class='ident'>DCBlength</span>: <span class='ident'>DWORD</span>,
@@ -328,15 +332,19 @@
 	}
 }
 
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>NOPARITY</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>0</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>ODDPARITY</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>1</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>EVENPARITY</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>2</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MARKPARITY</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>3</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>SPACEPARITY</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>4</span>;
+<span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>Parity</span> {
+	<span class='ident'>NO</span> <span class='op'>=</span> <span class='number'>0</span>,
+	<span class='ident'>ODD</span> <span class='op'>=</span> <span class='number'>1</span>,
+	<span class='ident'>EVEN</span> <span class='op'>=</span> <span class='number'>2</span>,
+	<span class='ident'>MARK</span> <span class='op'>=</span> <span class='number'>3</span>,
+	<span class='ident'>SPACE</span> <span class='op'>=</span> <span class='number'>4</span>,
+}
 
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>ONESTOPBIT</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>0</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>ONE5STOPBITS</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>1</span>;
-<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>TWOSTOPBITS</span>: <span class='ident'>BYTE</span> <span class='op'>=</span> <span class='number'>2</span>;
+<span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>StopBits</span> {
+	<span class='ident'>ONE</span> <span class='op'>=</span> <span class='number'>0</span>,
+	<span class='ident'>ONE5</span> <span class='op'>=</span> <span class='number'>1</span>,
+	<span class='ident'>TWO</span> <span class='op'>=</span> <span class='number'>2</span>,
+}
 
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>DTR_CONTROL</span> {
 	<span class='ident'>DISABLE</span>,
