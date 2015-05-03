@@ -98,7 +98,7 @@ impl Connection {
 					}
 					conn.set_timeout(40)
 				})
-				.map(|_| conn)					
+				.map(|_| conn)
 		}
 	}
 
@@ -346,8 +346,8 @@ fn colorswirl_test() {
 	let header_size = 6;
 	let mut buffer: Vec<u8> = (0..(header_size + n_leds * pixel_size)).map(|_| 0).collect();
 
-	// A special header / magic word is expected by the corresponding LED streaming code 
-	// running on the Arduino. This only needs to be initialized once because the number of  
+	// A special header / magic word is expected by the corresponding LED streaming code
+	// running on the Arduino. This only needs to be initialized once because the number of
 	// LEDs remains constant:
 	buffer[0] = 'A' as u8;                    // Magic word
 	buffer[1] = 'd' as u8;
@@ -355,7 +355,7 @@ fn colorswirl_test() {
 	buffer[3] = ((n_leds - 1) >> 8) as u8;    // LED count high byte
 	buffer[4] = ((n_leds - 1) & 0xff) as u8;  // LED count low byte
 	buffer[5] = buffer[3] ^ buffer[4] ^ 0x55; // Checksum
-	
+
 	let mut main_sin = 0.0_f32;
 	let mut main_hue = 0_u16;
 
