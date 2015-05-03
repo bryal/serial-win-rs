@@ -1,6 +1,6 @@
 [package]
 name = "serial-win"
-version = "0.0.3"
+version = "0.1.0"
 authors = ["bryal <96.bryal@gmail.com>"]
 description = "Serial communications in Windows"
 repository = "https://github.com/bryal/serial-win-rs"
