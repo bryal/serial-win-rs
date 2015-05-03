@@ -20,9 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#![feature(collections)]
-#![cfg_attr(test, feature(step_by))]
-
 #[macro_use]
 extern crate bitflags;
 extern crate libc;
@@ -31,6 +28,7 @@ pub use ffi::*;
 use libc::consts::os::extra::*;
 use libc::funcs::extra::kernel32;
 use libc::{ c_void, c_int, HANDLE };
+use std::ffi::CString;
 use std::{ ptr, mem, io };
 use std::io::{ Error, ErrorKind };
 use std::cell::RefCell;
@@ -64,10 +62,8 @@ impl Connection {
 	/// Open a new connection via port `port` with baud rate `baud_rate`
 	pub fn new(port: &str, baud_rate: u32) -> io::Result<Connection> {
 		let (comm_handle, err) = unsafe {
-			let mut port_u16: Vec<_> = port.utf16_units().collect();
-			port_u16.push(0);
 			(
-				kernel32::CreateFileW(port_u16.as_ptr(),
+				CreateFileA(CString::new(port).unwrap().as_ptr(),
 					GENERIC_READ | GENERIC_WRITE,
 					0,
 					ptr::null_mut(),
@@ -365,7 +361,7 @@ fn colorswirl_test() {
 
 		let (mut r, mut g, mut b): (u8, u8, u8);
 		// Start at position 6, after the LED header/magic word
-		for i in (6..buffer.len()).step_by(3) {
+		for i in (0 .. (buffer.len() - 6) / 3).map(|i| 6 + i * 3) {
 			// Fixed-point hue-to-RGB conversion.  'internal_hue' is an integer in the
 			// range of 0 to 1535, where 0 = red, 256 = yellow, 512 = green, etc.
 			// The high byte (0-5) corresponds to the sextant within the color

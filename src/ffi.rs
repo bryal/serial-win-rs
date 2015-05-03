@@ -22,7 +22,7 @@
 
 #![allow(non_snake_case, non_camel_case_types, dead_code, non_upper_case_globals)]
 
-use libc::{ c_int, c_char, LPOVERLAPPED, HANDLE, DWORD, WORD, BOOL, BYTE };
+use libc::{ c_int, c_char, LPOVERLAPPED, HANDLE, DWORD, WORD, BOOL, BYTE, SECURITY_ATTRIBUTES };
 use std::fmt;
 
 pub const ERROR_INVALID_USER_BUFFER: c_int = 1784;
@@ -185,4 +185,7 @@ extern "system" {
 	pub fn WaitCommEvent(file_handle: HANDLE, event_mask: *mut CommEventFlags,
 		overlapped: LPOVERLAPPED) -> BOOL;
 	pub fn SetCommTimeouts(file_handle: HANDLE, comm_timeouts: *mut COMMTIMEOUTS) -> BOOL;
+	pub fn CreateFileA(lpFileName: *const c_char, dwDesiredAccess: DWORD, dwShareMode: DWORD,
+		lpSecurityAttributes: *mut SECURITY_ATTRIBUTES, dwCreationDisposition: DWORD,
+		dwFlagsAndAttributes: DWORD, hTemplateFile: HANDLE) -> HANDLE;
 }
