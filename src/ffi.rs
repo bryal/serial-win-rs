@@ -23,7 +23,6 @@
 #![allow(non_snake_case, non_camel_case_types, dead_code, non_upper_case_globals)]
 
 use libc::{ c_int, c_char, LPOVERLAPPED, HANDLE, DWORD, WORD, BOOL, BYTE, SECURITY_ATTRIBUTES };
-use std::fmt;
 
 pub const ERROR_INVALID_USER_BUFFER: c_int = 1784;
 pub const ERROR_NOT_ENOUGH_MEMORY: c_int = 8;
@@ -47,26 +46,6 @@ bitflags!{
 		const DCBFRtsControl_hi = 0x2000,
 		const DCBFAbortOnError = 0x4000,
 		const DCBFDummy = 0x8000,
-	}
-}
-
-impl fmt::Debug for DCBFlags {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", [(DCBFBinary, "DCBFBinary"), (DCBFParity, "DCBFParity"),
-			(DCBFOutxCtsFlow, "DCBFOutxCtsFlow"), (DCBFOutxDsrFlow, "DCBFOutxDsrFlow"),
-			(DCBFDtrControl_lo, "DCBFDtrControl_lo"), (DCBFDtrControl_hi, "DCBFDtrControl_hi"),
-			(DCBFDsrSensitivity, "DCBFDsrSensitivity"),
-			(DCBFTXContinueOnXoff, "DCBFTXContinueOnXoff"), (DCBFOutX, "DCBFOutX"),
-			(DCBFInX, "DCBFInX"), (DCBFErrorChar, "DCBFErrorChar"), (DCBFNull, "DCBFNull"),
-			(DCBFRtsControl_lo, "DCBFRtsControl_lo"), (DCBFRtsControl_hi, "DCBFRtsControl_hi"),
-			(DCBFAbortOnError, "DCBFAbortOnError"), (DCBFDummy, "DCBFDummy")].iter()
-				.filter_map(|&(flag, name)| if self.contains(flag) { Some(name) } else { None })
-				.fold(String::new(), |acc, name| if acc.is_empty() {
-					name.to_string()
-				} else {
-					format!("{} | {}", acc, name)
-				})
-		)
 	}
 }
 
@@ -139,21 +118,6 @@ bitflags!{
 		const EV_RXCHAR = 0x0001,
 		const EV_RXFLAG = 0x0002,
 		const EV_TXEMPTY = 0x0004,
-	}
-}
-
-impl fmt::Debug for CommEventFlags {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", [(EV_BREAK, "EV_BREAK"), (EV_CTS, "EV_CTS"), (EV_DSR, "EV_DSR"),
-			(EV_ERR, "EV_ERR"), (EV_RING, "EV_RING"), (EV_RLSD, "EV_RLSD"),
-			(EV_RXCHAR, "EV_RXCHAR"), (EV_RXFLAG, "EV_RXFLAG"), (EV_TXEMPTY, "EV_TXEMPTY")].iter()
-				.filter_map(|&(flag, name)| if self.contains(flag) { Some(name) } else { None })
-				.fold(String::new(), |acc, name| if acc.is_empty() {
-					name.to_string()
-				} else {
-					format!("{} | {}", acc, name)
-				})
-		)
 	}
 }
 
