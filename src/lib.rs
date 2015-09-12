@@ -32,6 +32,7 @@ use std::ffi::CString;
 use std::{ ptr, mem, io };
 use std::io::{ Error, ErrorKind };
 use std::cell::RefCell;
+use std::os::windows::io::{AsRawHandle, RawHandle};
 
 mod ffi;
 
@@ -293,6 +294,11 @@ impl Drop for Connection {
 		if e == 0 {
 			panic!("Drop of Connection failed. CloseHandle gave error 0x{:x}", e)
 		}
+	}
+}
+impl AsRawHandle for Connection {
+	fn as_raw_handle(&self) -> RawHandle {
+		*self.comm_handle.borrow() as RawHandle
 	}
 }
 unsafe impl Send for Connection { }
