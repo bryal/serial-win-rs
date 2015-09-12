@@ -23,6 +23,7 @@
 #[macro_use]
 extern crate bitflags;
 extern crate libc;
+
 pub use ffi::*;
 
 use libc::consts::os::extra::*;
@@ -32,7 +33,7 @@ use std::ffi::CString;
 use std::{ ptr, mem, io };
 use std::io::{ Error, ErrorKind };
 use std::cell::RefCell;
-use std::os::windows::io::{AsRawHandle, RawHandle};
+use std::os::windows::io::{ AsRawHandle, RawHandle };
 
 mod ffi;
 

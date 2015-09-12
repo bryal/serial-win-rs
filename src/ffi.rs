@@ -22,7 +22,7 @@
 
 #![allow(non_snake_case, non_camel_case_types, dead_code, non_upper_case_globals)]
 
-use libc::{ c_int, c_char, LPOVERLAPPED, HANDLE, DWORD, WORD, BOOL, BYTE, SECURITY_ATTRIBUTES };
+use libc::{ c_int, c_char, HANDLE, LPOVERLAPPED, DWORD, WORD, BOOL, BYTE, SECURITY_ATTRIBUTES };
 
 pub const ERROR_INVALID_USER_BUFFER: c_int = 1784;
 pub const ERROR_NOT_ENOUGH_MEMORY: c_int = 8;
@@ -49,7 +49,7 @@ bitflags!{
 	}
 }
 
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Debug)]
 pub struct DCB {
 	pub DCBlength: DWORD,
@@ -143,12 +143,18 @@ pub struct COMMTIMEOUTS {
 #[link(name = "kernel32")]
 extern "system" {
 	pub fn PurgeComm(file_handle: HANDLE, flags: PurgeFlags) -> BOOL;
+
 	pub fn GetCommState(file_handle: HANDLE, dcb: *mut DCB) -> BOOL;
+
 	pub fn SetCommState(file_handle: HANDLE, dcb: *mut DCB) -> BOOL;
+
 	pub fn SetCommMask(file_handle: HANDLE, event_mask: CommEventFlags) -> BOOL;
+
 	pub fn WaitCommEvent(file_handle: HANDLE, event_mask: *mut CommEventFlags,
 		overlapped: LPOVERLAPPED) -> BOOL;
+
 	pub fn SetCommTimeouts(file_handle: HANDLE, comm_timeouts: *mut COMMTIMEOUTS) -> BOOL;
+
 	pub fn CreateFileA(lpFileName: *const c_char, dwDesiredAccess: DWORD, dwShareMode: DWORD,
 		lpSecurityAttributes: *mut SECURITY_ATTRIBUTES, dwCreationDisposition: DWORD,
 		dwFlagsAndAttributes: DWORD, hTemplateFile: HANDLE) -> HANDLE;
